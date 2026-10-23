@@ -22,7 +22,7 @@ const Studio = (() => {
     { id: 'matchnight', name: 'ليلة المباراة', bg1: '#00040f', bg2: '#03276b', primary: '#0057d9', accent: '#5fd0ff', leader: '#ffd166', text: '#ffffff', muted: '#9cc0f0', style: 'pitch' }
   ];
   const F = {
-    display: '"Amiri", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif',
+    display: '"Cairo", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif',
     body: '"IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif',
     num: '"Barlow Condensed", "IBM Plex Sans Arabic", "Arial Narrow", sans-serif'
   };
@@ -32,7 +32,7 @@ const Studio = (() => {
   function ensureFonts() {
     if (fontsReady) return fontsReady;
     const s = 'دوري توقعات البلوز 0123456789';
-    const list = ['700 40px "Amiri"', '400 40px "Amiri"', '400 40px "IBM Plex Sans Arabic"', '500 40px "IBM Plex Sans Arabic"', '700 40px "IBM Plex Sans Arabic"', '700 40px "Barlow Condensed"', '800 40px "Barlow Condensed"', '600 40px "Barlow Condensed"'];
+    const list = ['700 40px "Cairo"', '500 40px "Cairo"', '400 40px "IBM Plex Sans Arabic"', '500 40px "IBM Plex Sans Arabic"', '700 40px "IBM Plex Sans Arabic"', '700 40px "Barlow Condensed"', '800 40px "Barlow Condensed"', '600 40px "Barlow Condensed"'];
     fontsReady = Promise.race([
       Promise.all(list.map(f => document.fonts.load(f, s).catch(() => null))).then(() => document.fonts.ready),
       new Promise(r => setTimeout(r, 4000))

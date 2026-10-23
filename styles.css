@@ -4,7 +4,7 @@
   --bg: #060b18; --panel: #0c1630; --panel-2: #12204a; --line: #1f2d55; --fg: #edf1fb; --muted: #93a3c4;
   --blue: #034694; --blue-hi: #2a6ae0; --blue-ink: #04153a; --sky: #6cc4ff; --gold: #dcb64e;
   --ok: #3ddc84; --bad: #ff5c6c; --warn: #f3b23c; --shadow: 0 10px 30px rgba(0,0,0,.35);
-  --f-display: "Amiri", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --f-display: "Cairo", "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
   --f-body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
   --f-num: "Barlow Condensed", "IBM Plex Sans Arabic", "Arial Narrow", sans-serif;
   --r: 14px; color-scheme: dark;
