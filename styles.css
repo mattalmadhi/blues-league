@@ -284,3 +284,10 @@ input.sc.wide { width: 90px; text-align: center; }
 @media (max-width: 440px) { .top-tools .pill { display: none; } .brand small { max-width: 56vw; } .login-btn { width: 44px; padding: 0; } .login-btn .lbl { display: none; } }
 .board th .link { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }
 @media (max-width: 480px) { .board .opt { display: none; } .board th, .board td { padding-inline: 8px; } }
+/* live scores */
+.pill.live { color: #fff; background: var(--live, #d6334a); border-color: transparent; }
+.pill.live i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: live-dot 1.4s ease-in-out infinite; }
+@keyframes live-dot { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .pill.live i { animation: none; } }
+.goals { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 0; color: var(--muted); font-size: .86rem; }
+.live-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent); background: color-mix(in srgb, var(--ok) 10%, transparent); font-size: .92rem; }

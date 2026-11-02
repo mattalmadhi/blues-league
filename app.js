@@ -16,7 +16,7 @@ const S = {
   db: null, user: null, canEdit: false, uid: null, memory: false, ready: false,
   core: null, season: null, md: {}, hist: { opening: {}, rounds: [] }, imgs: {}, imgEls: {},
   view: lsGet('view') || 'home', param: null, tab: null, draft: {}, lateMode: {}, ver: 0,
-  subs: {}, audit: null, member: null, mine: {}, mineDraft: {}, submitted: {}, codes: null, email: '', setupMissing: false, histRound: null, studioPage: 0, studioPages: 1, compFilter: '', extStats: false, h2h: [null, null]
+  subs: {}, audit: null, member: null, mine: {}, mineDraft: {}, submitted: {}, codes: null, email: '', setupMissing: false, histRound: null, studioPage: 0, studioPages: 1, compFilter: '', extStats: false, h2h: [null, null], live: {}
 };
 const mem = {}; // memory-mode store
 
@@ -273,17 +273,59 @@ function matchCard(m, label) {
   const d = S.md[m.id], r = d?.result, ap = d?.approved;
   const n = S.canEdit || isLocked(m) ? Object.keys(d?.predictions || {}).length : (S.submitted[m.id] || []).length;
   return `<button class="mcard" data-open-match="${m.id}"><span class="eyebrow">${label} · ${esc(compName(m.compId))} · الجولة ${fmt(roundById(m.roundId)?.no)}</span>
-    <div class="vs"><span>تشلسي</span><b class="score">${ap && r?.status === 'finished' ? `${fmt(r.ch)}<i>–</i>${fmt(r.op)}` : '<i>ضد</i>'}</b><span>${esc(m.opponent)}</span></div>
+    <div class="vs"><span>تشلسي</span><b class="score">${scoreHTML(m)}</b><span>${esc(m.opponent)}</span></div>
     <small>${m.home ? 'على أرضه' : 'خارج أرضه'} · ${fmtDate(m.kickoff)}${!ap ? ` · ${fmt(n)} توقعات` : ''}${statusPill(m)}</small></button>`;
 }
+/* approved result first; otherwise the live score while a match is on or awaiting approval */
+function scoreHTML(m) {
+  const d = S.md[m.id], r = d?.result, lv = S.live[m.id];
+  if (d?.approved && r?.status === 'finished') return `${fmt(r.ch)}<i>–</i>${fmt(r.op)}`;
+  if (lv && lv.state !== 'pre' && lv.ch != null) return `${fmt(lv.ch)}<i>–</i>${fmt(lv.op)}`;
+  return '<i>ضد</i>';
+}
 function statusPill(m) {
-  const d = S.md[m.id];
+  const d = S.md[m.id], lv = S.live[m.id];
   if (m.status === 'postponed') return ' <span class="pill warn">مؤجلة</span>';
   if (m.status === 'cancelled') return ' <span class="pill">ملغاة</span>';
   if (d?.approved) return ' <span class="pill ok">معتمدة</span>';
+  if (lv?.state === 'in') return ` <span class="pill live"><i></i>مباشر · ${esc(lv.detail)}</span>`;
+  if (lv?.finished) return ' <span class="pill warn">انتهت · بانتظار الاعتماد</span>';
   if (isLocked(m)) return ' <span class="pill warn">بانتظار النتيجة</span>';
   return ' <span class="pill">مفتوحة للتوقع</span>';
 }
+/* ---------- live scores (ESPN) ---------- */
+// scorer names are written the way members pick them, so the engine's exact match works
+function liveResult(lv) {
+  const nm = en => lv.goalsMatch ? Live.localName(en, S.core.squad || [], E.norm) : '';
+  return { status: 'finished', ch: lv.ch, op: lv.op, extraTime: lv.extraTime, ch90: lv.ch90, op90: lv.op90, pens: lv.pens,
+    firstScorer: nm(lv.firstScorerEn), firstScorerOG: lv.goalsMatch && lv.firstScorerOG, firstChelseaScorer: nm(lv.firstChelseaScorerEn), firstChelseaOG: lv.goalsMatch && lv.firstChelseaOG };
+}
+function liveGoals(m) {
+  const lv = S.live[m.id];
+  if (!lv || lv.state === 'pre' || !lv.goals?.length) return '';
+  return `<p class="goals">${lv.goals.map(g => `<span>${esc(g.min)} ${esc(Live.localName(g.name, S.core.squad || [], E.norm))}${g.og ? ' (عكسي)' : g.pen ? ' (جزاء)' : ''}${g.che ? '' : ' · ' + esc(m.opponent)}</span>`).join('')}</p>`;
+}
+let livePolling = false;
+async function pollLive() {
+  if (livePolling || !S.season || typeof Live === 'undefined') return;
+  livePolling = true;
+  try {
+    const now = Date.now();
+    // from 15 min before kickoff until approved: a week for members, the whole backlog for the admin
+    const back = (S.canEdit ? 60 : 7) * 864e5;
+    const due = (S.season.matches || []).filter(m => m.status === 'scheduled' && !S.md[m.id]?.approved && Date.parse(m.kickoff) < now + 9e5 && Date.parse(m.kickoff) > now - back);
+    let changed = false;
+    for (const m of due) {
+      const lv = await Live.fetchMatch(m).catch(() => undefined);
+      if (lv === undefined) continue;
+      if (JSON.stringify(lv) !== JSON.stringify(S.live[m.id] ?? null)) { S.live[m.id] = lv; changed = true; }
+    }
+    if (changed) schedule();
+  } finally { livePolling = false; }
+}
+setInterval(() => { if (document.visibilityState === 'visible') pollLive(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pollLive(); });
+
 function miniTable(rows) {
   if (!rows.length) return '<p class="muted">يظهر الترتيب بعد إضافة المشاركين وإدخال النقاط.</p>';
   return `<ol class="mini">${rows.map(r => `<li><span class="pos p${r.pos}">${fmt(r.pos)}</span><span class="nm">${esc(r.name)}</span>${chg(r.change)}<b class="num">${fmt(r.total)}</b></li>`).join('')}</ol>`;
@@ -307,7 +349,7 @@ function vMatches() {
   ${Object.keys(byRound).sort((a, b) => a - b).map(no => {
     const r = rs.find(x => x.no == no); const champ = compute().champions[no];
     return `<section class="round"><div class="row between"><h2>الجولة ${fmt(+no)}${r?.name ? ' · ' + esc(r.name) : ''}</h2>${champ?.pids?.length ? `<span class="pill gold">${I(IC.trophy, 14)} ${esc(champ.pids.map(pName).join('، '))} · ${fmt(champ.pts)}</span>` : ''}</div>
-    <div class="mlist">${byRound[no].map(m => { const d = S.md[m.id]; const rr = d?.result; return `<button class="mrow" data-open-match="${m.id}"><span class="mr-comp">${esc(compName(m.compId))}</span><span class="mr-vs">تشلسي <b>${d?.approved && rr?.status === 'finished' ? `${fmt(rr.ch)} – ${fmt(rr.op)}` : 'ضد'}</b> ${esc(m.opponent)}</span><span class="mr-meta">${fmtDate(m.kickoff, { dateStyle: 'medium', timeStyle: 'short' })}${statusPill(m)}</span></button>`; }).join('')}</div></section>`;
+    <div class="mlist">${byRound[no].map(m => { const d = S.md[m.id]; const rr = d?.result; return `<button class="mrow" data-open-match="${m.id}"><span class="mr-comp">${esc(compName(m.compId))}</span><span class="mr-vs">تشلسي <b>${d?.approved && rr?.status === 'finished' ? `${fmt(rr.ch)} – ${fmt(rr.op)}` : S.live[m.id]?.state && S.live[m.id].state !== 'pre' && S.live[m.id].ch != null ? `${fmt(S.live[m.id].ch)} – ${fmt(S.live[m.id].op)}` : 'ضد'}</b> ${esc(m.opponent)}</span><span class="mr-meta">${fmtDate(m.kickoff, { dateStyle: 'medium', timeStyle: 'short' })}${statusPill(m)}</span></button>`; }).join('')}</div></section>`;
   }).join('')}`;
 }
 
@@ -336,7 +378,8 @@ function vMatch() {
   return `<button class="back" data-go="matches">${I(IC.back, 18)} المباريات</button>
   <section class="match-head">
     <span class="eyebrow">${esc(compName(m.compId))} · الجولة ${fmt(roundById(m.roundId)?.no)} · ${m.home ? 'على أرضه' : 'خارج أرضه'}</span>
-    <div class="vs big"><span>تشلسي</span><b class="score">${d.approved && r?.status === 'finished' ? `${fmt(r.ch)}<i>–</i>${fmt(r.op)}` : '<i>ضد</i>'}</b><span>${esc(m.opponent)}</span></div>
+    <div class="vs big"><span>تشلسي</span><b class="score">${scoreHTML(m)}</b><span>${esc(m.opponent)}</span></div>
+    ${liveGoals(m)}
     <small>${fmtDate(m.kickoff, { dateStyle: 'full', timeStyle: 'short' })} ${statusPill(m)} ${d.approved && d.appliedRules ? `<span class="pill">القواعد: ${esc(d.appliedRules.name || '')}</span>` : ''}</small>
   </section>
   <div class="tabs" role="tablist">${[['preds', 'التوقعات'], ['result', 'النتيجة والاعتماد'], ['calc', 'تفاصيل النقاط'], ...(canWrite() ? [['edit', 'بيانات المباراة']] : [])].map(([k, l]) => `<button role="tab" class="tab ${tab === k ? 'on' : ''}" aria-selected="${tab === k}" data-tab="${k}">${l}</button>`).join('')}</div>
@@ -379,11 +422,13 @@ const scorerFromInput = v => { const n = E.norm(v); if (!n) return ''; if (n ===
 function squadDatalist() { return `<datalist id="squad-list"><option value="لا يوجد هدف"></option><option value="هدف عكسي"></option>${(S.core.squad || []).map(s => `<option value="${esc(s)}"></option>`).join('')}</datalist>`; }
 
 function resultPanel(m, d) {
-  const r = d.result || { status: 'finished', ch: '', op: '', extraTime: false, firstScorer: '', firstScorerOG: false, firstChelseaScorer: '', firstChelseaOG: false };
+  const lv = !d.result && !d.approved ? S.live[m.id]?.result : null;
+  const r = d.result || (lv ? liveResult(lv) : { status: 'finished', ch: '', op: '', extraTime: false, firstScorer: '', firstScorerOG: false, firstChelseaScorer: '', firstChelseaOG: false });
   const rules = E.ruleForDate(S.season.rules, m.kickoff);
   const dis = canWrite() ? '' : 'disabled';
   const v = x => x ?? '';
-  return `<form id="f-result" class="form card" data-id="${m.id}">
+  return `${lv && canWrite() ? `<p class="note live-note">عبئت النتيجة تلقائيا من النتيجة الرسمية (ESPN). ${lv.goalsMatch ? 'راجع اسم الهداف ثم اضغط اعتماد.' : 'تعذر التحقق من قائمة الأهداف، فأدخل الهداف يدويا.'}</p>` : ''}
+  <form id="f-result" class="form card" data-id="${m.id}">
     <div class="grid3"><label>الحالة<select id="fr-status" ${dis}>${[['finished', 'انتهت'], ['postponed', 'تأجلت'], ['cancelled', 'ألغيت']].map(([k, l]) => `<option value="${k}" ${r.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>أهداف تشلسي<input id="fr-ch" inputmode="numeric" value="${v(r.ch)}" ${dis}></label><label>أهداف ${esc(m.opponent)}<input id="fr-op" inputmode="numeric" value="${v(r.op)}" ${dis}></label></div>
     <label class="check"><input type="checkbox" id="fr-et" ${r.extraTime ? 'checked' : ''} ${dis}> امتدت المباراة لأشواط إضافية</label>
@@ -1534,7 +1579,7 @@ async function boot() {
     else if (lsGet('memberCode')) { lsSet('memberCode', null); toast('رابطك الشخصي لم يعد صالحا. اطلب رابطا جديدا من المدير', 'err'); }
   }
   subscribe();
-  loadMine(); loadSubmitted();
+  loadMine(); loadSubmitted(); setTimeout(pollLive, 2500);
   setInterval(() => { if (document.visibilityState === 'visible') { loadSubmitted(); loadMine(); } }, 30000);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
 }
