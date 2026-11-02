@@ -282,4 +282,5 @@ input.sc.wide { width: 90px; text-align: center; }
 .brand b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-tools { flex: none; }
 @media (max-width: 440px) { .top-tools .pill { display: none; } .brand small { max-width: 56vw; } .login-btn { width: 44px; padding: 0; } .login-btn .lbl { display: none; } }
+.board th .link { min-height: 44px; display: inline-flex; align-items: center; }
 @media (max-width: 480px) { .board .opt { display: none; } .board th, .board td { padding-inline: 8px; } }
