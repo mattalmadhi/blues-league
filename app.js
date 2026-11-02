@@ -209,7 +209,7 @@ function layout(inner) {
   <header class="top">
     <div class="brand"><span class="mark">${crestSVG()}</span><div><b>${esc(S.core?.leagueName || 'دوري توقعات البلوز')}</b><small>${esc(S.core?.groupName || S.core?.leagueNameEn || 'CHELSEA PREDICTION LEAGUE')}${s ? ' · ' + esc(fmt(s.name)) : ''}${s?.demo ? ' · تجريبي' : ''}</small></div></div>
     <div class="top-tools">${S.memory ? '<span class="pill warn" title="البيانات لا تحفظ في هذا العرض">عرض مؤقت</span>' : ''}${S.member && !S.canEdit ? `<span class="pill gold">${esc(pName(S.member.pid))}</span>` : ''}${archived() ? '<span class="pill">موسم مؤرشف</span>' : ''}
-      ${S.memory ? '' : S.canEdit ? `<button class="icon-btn" data-act="logout" aria-label="تسجيل خروج المدير" title="تسجيل الخروج">${I('<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>', 20)}</button>` : `<button class="btn ghost sm" data-act="login">دخول المدير</button>`}
+      ${S.memory ? '' : S.canEdit ? `<button class="icon-btn" data-act="logout" aria-label="تسجيل خروج المدير" title="تسجيل الخروج">${I('<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>', 20)}</button>` : `<button class="btn ghost sm login-btn" data-act="login" aria-label="دخول المدير">${I('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>', 18)}<span class="lbl">دخول المدير</span></button>`}
       <button class="icon-btn" data-act="theme" aria-label="تبديل المظهر">${I('<path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>', 20)}</button></div>
   </header>
   <nav class="rail" aria-label="التنقل">${nav.map(([v, l, ic]) => `<button class="nav-i ${cur === v ? 'on' : ''}" data-go="${v}" ${cur === v ? 'aria-current="page"' : ''}>${I(ic)}<span>${l}</span></button>`).join('')}</nav>
@@ -418,15 +418,17 @@ function vTable() {
   const cf = S.season.rankingScope === 'perComp' ? S.compFilter : '';
   const res = compute(cf);
   const ext = S.extStats;
+  // an opening balance is a running total, not one round's points
+  const showRound = res.lastRound != null && !res.roundData?.[res.lastRound]?.opening;
   return `<div class="row between wrap"><h1>الترتيب</h1><div class="row"><label class="check sm"><input type="checkbox" data-act="ext" ${ext ? 'checked' : ''}> إحصاءات موسعة</label><button class="btn sm" data-go="h2h">مقارنة مشاركين</button><button class="btn primary sm" data-act="go-studio">${I(IC.image, 16)} صورة</button></div></div>
   ${S.season.rankingScope === 'perComp' && comps().length > 1 ? `<div class="chips">${['', ...comps().map(c => c.id)].map(id => `<button class="chip ${cf === id ? 'on' : ''}" data-comp="${id}">${id ? esc(compName(id)) : 'الترتيب العام'}</button>`).join('')}</div>${cf ? '<p class="muted">ترتيب البطولة يشمل المباريات المسجلة فيها فقط، ولا يشمل الأرصدة التاريخية.</p>' : ''}` : ''}
-  <p class="muted">${res.lastRound != null ? `حتى الجولة ${fmt(res.lastRound)}.` : ''} ${res.prevRound != null ? `التغير مقارنة بترتيب الجولة ${fmt(res.prevRound)} المعتمدة.` : 'يظهر التغير بعد توفر جولتين معتمدتين للمقارنة.'}</p>
+  <p class="muted">${res.lastRound != null ? (showRound ? `حتى الجولة ${fmt(res.lastRound)}.` : `الرصيد الافتتاحي حتى الجولة ${fmt(res.lastRound)}.`) : ''} ${res.prevRound != null ? `التغير مقارنة بترتيب الجولة ${fmt(res.prevRound)} المعتمدة.` : 'يظهر التغير بعد توفر جولتين معتمدتين للمقارنة.'}</p>
   ${!res.rows.length ? '<div class="empty card"><p>أضف المشاركين لبدء الترتيب.</p></div>' : `<div class="table-wrap"><table class="grid board">
-  <thead><tr><th>المركز</th><th>المشارك</th><th>لعب</th><th>نقاط الجولة</th><th>المجموع</th><th>التغير</th>${ext ? '<th>دقيقة</th><th>فائز</th><th>هداف</th><th>متوسط</th><th>تاريخي</th>' : ''}<th><span class="sr">تفاصيل</span></th></tr></thead>
+  <thead><tr><th>المركز</th><th>المشارك</th><th>المجموع</th>${showRound ? '<th>نقاط الجولة</th>' : ''}<th>التغير</th><th class="opt">لعب</th>${ext ? '<th>دقيقة</th><th>فائز</th><th>هداف</th><th>متوسط</th><th>تاريخي</th>' : ''}<th class="opt"><span class="sr">تفاصيل</span></th></tr></thead>
   <tbody>${res.rows.map(r => `<tr class="${r.pos <= 3 && r.total > 0 ? 'top' + r.pos : ''}"><td><span class="pos p${r.pos}">${fmt(r.pos)}</span></td><th scope="row"><button class="link" data-profile="${r.pid}">${esc(r.name)}</button>${r.tieSkipped ? ' <span class="pill" title="تساو لم يفصل لنقص بيانات تاريخية">=</span>' : ''}</th>
-  <td class="num">${fmt(r.played)}</td><td class="num">${r.roundLast ? '+' + fmt(r.roundLast) : fmt(0)}</td><td class="num total">${fmt(r.total)}</td><td>${chg(r.change)}</td>
+  <td class="num total">${fmt(r.total)}</td>${showRound ? `<td class="num">${r.roundLast ? '+' + fmt(r.roundLast) : fmt(0)}</td>` : ''}<td>${chg(r.change)}</td><td class="num opt">${fmt(r.played)}</td>
   ${ext ? `<td class="num">${fmt(r.stats.exact)}</td><td class="num">${fmt(r.stats.winner)}</td><td class="num">${fmt(r.stats.scorer)}</td><td class="num">${r.avg != null ? fmt(Math.round(r.avg * 100) / 100) : '—'}</td><td class="num">${fmt(r.histPts)}</td>` : ''}
-  <td><button class="btn ghost sm" data-why="${r.pid}">لماذا؟</button></td></tr>`).join('')}</tbody></table></div>`}
+  <td class="opt"><button class="btn ghost sm" data-why="${r.pid}">لماذا؟</button></td></tr>`).join('')}</tbody></table></div>`}
   ${rankChart(res)}
   ${achievementsBlock(res)}`;
 }
@@ -612,10 +614,11 @@ function studioData(o) {
   const mr = mdoc?.approved ? mdoc.result : null;
   const md = match ? { opponent: match.opponent, home: match.home, status: mr ? mr.status : match.status, ch: mr?.ch, op: mr?.op, kickoff: match.kickoff, note: mr?.extraTime ? `بعد الأشواط الإضافية${mr.pens ? ' · ترجيح ' + (mr.pens === 'ch' ? 'لتشلسي' : 'للخصم') : ''}` : '' } : null;
   const roundNo = match ? roundById(match.roundId)?.no : res.lastRound;
+  const openingOnly = res.lastRound != null && !!res.roundData?.[res.lastRound]?.opening;
   const rows = res.rows.map(r => ({ pos: r.pos, name: r.name, alias: pById(r.pid)?.alias, total: r.total, roundPts: r.roundLast, change: r.change, img: o.avatars ? imgEl(pById(r.pid)?.img) : null, tied: res.rows.filter(x => x.pos === r.pos).length > 1 }));
   const d = {
     leagueName: S.core.leagueName, groupName: S.core.groupName || S.core.leagueNameEn, seasonName: s?.name, fmt, fmtSeason: v => fmt(v),
-    logo: o.logo ? imgEl(o.logo) : null, rows, match: md,
+    logo: o.logo ? imgEl(o.logo) : null, rows, match: md, openingOnly,
     roundLabel: roundNo != null ? `الجولة ${fmt(roundNo)}${match ? ' · ' + compName(match.compId) : ''}` : '',
     roundShort: 'الجولة',
     updatedLabel: 'آخر تحديث ' + fmtDate(new Date().toISOString(), { dateStyle: 'medium' })
@@ -669,6 +672,7 @@ async function doDraw() {
   const o = studioOpts();
   const d = studioData(o);
   const opts = { ...o, groupName: o.groupName || '', limit: +o.limit || 0, palette: paletteOf(o), leaderColor: paletteOf(o).leader };
+  if (d.openingOnly) opts.showRound = false;
   let pages = Studio.render(cv, o.template, d, opts, S.studioPage);
   if (S.studioPage >= pages) { S.studioPage = pages - 1; pages = Studio.render(cv, o.template, d, opts, S.studioPage); }
   S.studioPages = pages;
